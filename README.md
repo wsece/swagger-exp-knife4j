@@ -185,7 +185,7 @@ Open **http://127.0.0.1:7171/** in your browser.
 docker compose up -d --build
 ```
 
-SQLite and `output/` are persisted via volumes. Scan examples: [docs/docker.md](docs/docker.md).
+SQLite and `output/` are persisted via volumes. Scan examples:[wiki_swagger-exp-knife4j]([docs/docker.md](https://wsece.github.io/wiki_swagger-exp-knife4j/source_md/docker.html)).
 
 ## Documentation
 
