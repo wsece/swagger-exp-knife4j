@@ -196,6 +196,7 @@
               <h3 id="preview-title">API Documentation</h3>
               <p id="preview-meta"></p>
               <button class="btn-render" id="preview-render-btn" type="button">Open Knife4j</button>
+              <button class="btn-render" id="preview-render-proxy-btn" type="button" title="Same-origin proxy when CORS blocks direct calls">Proxy mode</button>
             </div>
           </div>
           <div class="path-chips" id="preview-paths"></div>
@@ -270,8 +271,10 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function openKnife4j(sessionId) {
-      window.open('/knife4j-doc.html?session=' + encodeURIComponent(sessionId), '_blank', 'noopener');
+    function openKnife4j(sessionId, useProxy) {
+      let url = '/knife4j-doc.html?session=' + encodeURIComponent(sessionId);
+      if (useProxy) url += '&proxy=1';
+      window.open(url, '_blank', 'noopener');
     }
 
     function asArray(v) {
@@ -314,7 +317,7 @@
           '<div class="row"><div>' +
           '<div class="title">' + id + '</div>' +
           '<div class="meta">' + host + ' &middot; ' + fmtTime(s.scanned_at) + '</div>' +
-          '</div><button class="btn-render" type="button" data-session="' + id + '">Open</button></div></div>';
+          '</div><button class="btn-render" type="button" data-session="' + id + '" data-proxy="0">Open</button><button class="btn-render" type="button" data-session="' + id + '" data-proxy="1" title="CORS proxy">Proxy</button></div></div>';
       }).join('');
       el.querySelectorAll('.session-item').forEach(node => {
         node.addEventListener('click', e => {
@@ -323,7 +326,10 @@
         });
       });
       el.querySelectorAll('.btn-render').forEach(btn => {
-        btn.addEventListener('click', e => { e.stopPropagation(); openKnife4j(btn.dataset.session); });
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          openKnife4j(btn.dataset.session, btn.dataset.proxy === '1');
+        });
       });
     }
 
@@ -504,7 +510,8 @@
         document.getElementById('preview-blur').textContent = preview.excerpt || '';
         document.getElementById('preview-paths').innerHTML = (preview.paths || [])
           .map(p => '<span>' + escapeHtml(p) + '</span>').join('');
-        document.getElementById('preview-render-btn').onclick = () => openKnife4j(sessionId);
+        document.getElementById('preview-render-btn').onclick = () => openKnife4j(sessionId, false);
+        document.getElementById('preview-render-proxy-btn').onclick = () => openKnife4j(sessionId, true);
       } catch (e) {
         showError('preview: ' + e.message);
       }

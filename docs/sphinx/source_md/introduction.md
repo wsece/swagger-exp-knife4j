@@ -133,7 +133,7 @@ mcp serve
 
 - 仅用于**已获得授权**的目标；请遵守法律法规与单位安全制度。
 - 自动探测可能对目标产生压力，请合理设置 `--delay`、`-P` 并发。
-- Knife4j 调试页依赖本机 `report server`，请求经浏览器发往**真实目标**（非纯离线 mock）。
+- Knife4j 调试页依赖本机 `report server`；默认 **Open Knife4j** 为浏览器直连目标 API，可选 **Proxy mode** 同源转发（见 [Web 报告站](web-report.md#knife4j)）。
 
 ## 与相关项目关系 {#relations}
 

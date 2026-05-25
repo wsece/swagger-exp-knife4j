@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -18,8 +19,9 @@ var indexHTML string
 
 // ServerConfig is the report HTTP server listen address.
 type ServerConfig struct {
-	Host string
-	Port int
+	Host         string
+	Port         int
+	Knife4jProxy bool // when true (or ?proxy=1), route try-it-out via same-origin /knife4j/.../try
 }
 
 // Server wraps mux and Store, serving /api/* and Knife4j routes.
@@ -45,8 +47,12 @@ func NewServer(store *Store, cfg ServerConfig) *Server {
 // ListenAndServe starts HTTP on cfg.Host:cfg.Port; blocks until error.
 func (s *Server) ListenAndServe() error {
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 	log.Print("report server listening", "url", "http://"+addr)
-	return http.ListenAndServe(addr, s.cors(s.mux))
+	return http.Serve(ln, s.cors(s.mux))
 }
 
 func (s *Server) routes() {

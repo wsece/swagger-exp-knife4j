@@ -14,12 +14,16 @@
   <script>
     window.__KNIFE4J_SESSION__ = "__SESSION_ID__";
     window.__KNIFE4J_TARGET_ORIGIN__ = "__TARGET_ORIGIN__";
+    window.__KNIFE4J_USE_PROXY__ = __KNIFE4J_USE_PROXY__;
     (function () {
       const session = window.__KNIFE4J_SESSION__;
       const target = window.__KNIFE4J_TARGET_ORIGIN__;
+      const useProxy = window.__KNIFE4J_USE_PROXY__ === true;
       const legacyPrefix = "/knife4j/" + session;
-      const specPath = "/knife4j-openapi.json?session=" + encodeURIComponent(session);
-      const configPath = "/knife4j-swagger-config?session=" + encodeURIComponent(session);
+      const pageParams = new URLSearchParams(location.search);
+      const proxyQ = pageParams.get("proxy") ? ("&proxy=" + encodeURIComponent(pageParams.get("proxy"))) : "";
+      const specPath = "/knife4j-openapi.json?session=" + encodeURIComponent(session) + proxyQ;
+      const configPath = "/knife4j-swagger-config?session=" + encodeURIComponent(session) + proxyQ;
       const stripLegacyRe = new RegExp("/knife4j/" + session.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=/|$)", "g");
       const stripAnyKnifeRe = /\/knife4j\/[^/?#\s]+(?=\/|$)/g;
 
@@ -85,7 +89,8 @@
         const path = u.pathname;
 
         if (isTargetOriginUrl(u)) {
-          return toProxyApiUrl(u.pathname, u.search);
+          if (useProxy) return toProxyApiUrl(u.pathname, u.search);
+          return url;
         }
 
         if (u.origin === location.origin) {
@@ -96,6 +101,15 @@
             return specPath;
           }
           if (isLocalStatic(path) || path.endsWith("/knife4j-doc.html")) {
+            return u.toString();
+          }
+          if (!useProxy) {
+            if (!isReportServerPath(path) && !isLocalStatic(path) && target) {
+              try {
+                var rel = path.startsWith("/") ? path : ("/" + path);
+                return new URL(rel + (u.search || ""), target).href;
+              } catch (e) {}
+            }
             return u.toString();
           }
           if (path === tryPrefix || path.startsWith(tryPrefix + "/")) {

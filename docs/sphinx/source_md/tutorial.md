@@ -57,11 +57,11 @@ swagger-exp-knife4j report list
 
 2、可在 Web 管理端查看统计信息或下发新任务：
 
-启动服务，默认连接 `sqlite://swagger-scan.sqlite3` 及联动 `./output` 文件夹下的转储文件。支持通过 `server--db-uri `或 `--api-doc-path` 参数手工指定。
+启动服务，默认连接 `sqlite://swagger-scan.sqlite3` 及 `./output` 下的转储文件；可用 `--db-uri`、`--api-doc-path` 覆盖。
 
 ```bash
 swagger-exp-knife4j report server
-swagger-exp-knife4j report server--db-uri sqlite://swagger-scan.sqlite3 --api-doc-path ./output
+swagger-exp-knife4j report server --db-uri sqlite://swagger-scan.sqlite3 --api-doc-path ./output
 ```
 
 浏览器访问：**http://127.0.0.1:7171/**
@@ -69,7 +69,7 @@ swagger-exp-knife4j report server--db-uri sqlite://swagger-scan.sqlite3 --api-do
 - 左侧选 **Host** 加载探测记录表  
 - 中栏可选：**仅最新请求**（按 Method+路径去重）、**按相似响应排序**（基于 SimHash 聚类字段）  
 - 选中行后右侧查看 Request/Response（body 超过 64 KiB 时仅预览片段）  
-- **API Docs** 可预览 OpenAPI；**Open Knife4j** 经报告站同源代理转发请求  
+- **API Docs**：**Open Knife4j** 直连目标域名（便于抓包）；**Proxy mode** 经本机代理（CORS 异常时用）  
 - 顶部 **下发扫描任务**（默认折叠）提交后续扫描  
 
 规格说明：[响应智能分析](smart-analysis.md)；界面说明：[Web 报告站](web-report.md)。

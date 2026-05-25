@@ -116,7 +116,7 @@ func (s *Server) handleKnife4jDocFlat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session query required", http.StatusBadRequest)
 		return
 	}
-	s.writeKnife4jDocHTML(w, sessionID)
+	s.writeKnife4jDocHTML(w, r, sessionID)
 }
 
 func (s *Server) handleKnife4jSwaggerConfigQuery(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +140,7 @@ func (s *Server) handleKnife4jOpenAPIQuery(w http.ResponseWriter, r *http.Reques
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("session required"))
 		return
 	}
-	s.writeKnife4jOpenAPI(w, sessionID)
+	s.writeKnife4jOpenAPI(w, r, sessionID)
 }
 
 func sessionFromKnife4jReferer(r *http.Request) string {
@@ -165,16 +165,18 @@ func sessionFromKnife4jReferer(r *http.Request) string {
 	return ""
 }
 
-func (s *Server) writeKnife4jDocHTML(w http.ResponseWriter, sessionID string) {
+func (s *Server) writeKnife4jDocHTML(w http.ResponseWriter, r *http.Request, sessionID string) {
 	data, err := knife4jFS.ReadFile("static/knife4j/doc.html")
 	if err != nil {
 		http.Error(w, "doc template missing", http.StatusInternalServerError)
 		return
 	}
 	targetOrigin := s.store.TargetOriginForSession(sessionID)
+	useProxy := s.knife4jUseProxy(r)
 	html := string(data)
 	html = strings.ReplaceAll(html, "__SESSION_ID__", sessionID)
 	html = strings.ReplaceAll(html, "__TARGET_ORIGIN__", targetOrigin)
+	html = strings.ReplaceAll(html, "__KNIFE4J_USE_PROXY__", fmt.Sprintf("%t", useProxy))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(html))
 }
@@ -218,7 +220,7 @@ func (s *Server) handleKnife4jOpenAPIFlat(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("session query required"))
 		return
 	}
-	s.writeKnife4jOpenAPI(w, sessionID)
+	s.writeKnife4jOpenAPI(w, r, sessionID)
 }
 
 func (s *Server) handleKnife4jOpenAPI(w http.ResponseWriter, r *http.Request) {
@@ -227,17 +229,20 @@ func (s *Server) handleKnife4jOpenAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("session required"))
 		return
 	}
-	s.writeKnife4jOpenAPI(w, sessionID)
+	s.writeKnife4jOpenAPI(w, r, sessionID)
 }
 
-func (s *Server) writeKnife4jOpenAPI(w http.ResponseWriter, sessionID string) {
+func (s *Server) writeKnife4jOpenAPI(w http.ResponseWriter, r *http.Request, sessionID string) {
 	data, err := s.store.ReadDocSpec(sessionID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, err)
 		return
 	}
-	// Route Knife4j "try" requests through same-origin proxy to avoid browser CORS preflight (OPTIONS).
-	data = NormalizeOpenAPISpec(data, Knife4jProxyServerURL(sessionID))
+	serverURL := s.store.TargetOriginForSession(sessionID)
+	if s.knife4jUseProxy(r) {
+		serverURL = Knife4jProxyServerURL(sessionID)
+	}
+	data = NormalizeOpenAPISpec(data, serverURL)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data)
 }

@@ -12,10 +12,11 @@ import (
 )
 
 var serverCmdFlags = struct {
-	Host       string
-	Port       int
-	DbURI      string
-	APIDocPath string
+	Host         string
+	Port         int
+	DbURI        string
+	APIDocPath   string
+	Knife4jProxy bool
 }{}
 
 var serverCmd = &cobra.Command{
@@ -39,11 +40,16 @@ var serverCmd = &cobra.Command{
 		)
 
 		srv := reportserver.NewServer(store, reportserver.ServerConfig{
-			Host: serverCmdFlags.Host,
-			Port: serverCmdFlags.Port,
+			Host:         serverCmdFlags.Host,
+			Port:         serverCmdFlags.Port,
+			Knife4jProxy: serverCmdFlags.Knife4jProxy,
 		})
-		return srv.ListenAndServe()
+		if err := srv.ListenAndServe(); err != nil {
+			return formatReportListenError(serverCmdFlags.Host, serverCmdFlags.Port, err)
+		}
+		return nil
 	},
+	SilenceUsage: true,
 }
 
 func init() {
@@ -54,4 +60,5 @@ func init() {
 	serverCmd.Flags().IntVar(&serverCmdFlags.Port, "port", 7171, "The port to start the web server on")
 	serverCmd.Flags().StringVar(&serverCmdFlags.DbURI, "db-uri", defaultSwaggerDBURI, "The database URI for scan records")
 	serverCmd.Flags().StringVar(&serverCmdFlags.APIDocPath, "api-doc-path", "./output", "The path where api-docs.json files are stored")
+	serverCmd.Flags().BoolVar(&serverCmdFlags.Knife4jProxy, "knife4j-proxy", false, "Route Knife4j try-it-out via same-origin proxy (CORS workaround); default sends requests to target host for Burp etc.")
 }
