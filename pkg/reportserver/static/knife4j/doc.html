@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Knife4j · __SESSION_ID__</title>
+  <link href="/knife4j-assets/css/chunk-41ae0dec.999bc9fd.css" rel="prefetch">
+  <link href="/knife4j-assets/css/chunk-cdc6d52e.9612b987.css" rel="prefetch">
+  <link href="/knife4j-assets/css/app.1824bac3.css" rel="preload" as="style">
+  <link href="/knife4j-assets/css/chunk-vendors.f24a310a.css" rel="preload" as="style">
+  <link href="/knife4j-assets/css/chunk-vendors.f24a310a.css" rel="stylesheet">
+  <link href="/knife4j-assets/css/app.1824bac3.css" rel="stylesheet">
+  <script>
+    window.__KNIFE4J_SESSION__ = "__SESSION_ID__";
+    window.__KNIFE4J_TARGET_ORIGIN__ = "__TARGET_ORIGIN__";
+    (function () {
+      const session = window.__KNIFE4J_SESSION__;
+      const target = window.__KNIFE4J_TARGET_ORIGIN__;
+      const legacyPrefix = "/knife4j/" + session;
+      const specPath = "/knife4j-openapi.json?session=" + encodeURIComponent(session);
+      const configPath = "/knife4j-swagger-config?session=" + encodeURIComponent(session);
+      const stripLegacyRe = new RegExp("/knife4j/" + session.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=/|$)", "g");
+      const stripAnyKnifeRe = /\/knife4j\/[^/?#\s]+(?=\/|$)/g;
+
+      function isLocalStatic(path) {
+        return path.includes("/webjars/") || path.includes("/knife4j-assets/");
+      }
+
+      function isBootstrapPath(path) {
+        return path.includes("swagger-config") || path.includes("swagger-resources")
+          || path.includes("knife4j-openapi") || path.includes("knife4j-swagger-config")
+          || path.endsWith("/v3/api-docs");
+      }
+
+      function isReportServerPath(path) {
+        if (!path || path === "/" || path === "/knife4j-doc.html") return true;
+        if (path.startsWith("/knife4j")) return true;
+        if (path.startsWith("/webjars/")) return true;
+        if (path.startsWith("/v3/")) return true;
+        if (isBootstrapPath(path)) return true;
+        // Only our report REST API — do NOT match target APIs like /api/test/ok
+        if (path === "/api/status") return true;
+        if (path.indexOf("/api/hosts") === 0) return true;
+        if (path.indexOf("/api/sessions") === 0) return true;
+        if (path.indexOf("/api/docs") === 0) return true;
+        if (path.indexOf("/api/records") === 0) return true;
+        return false;
+      }
+
+      const tryPrefix = legacyPrefix + "/try";
+
+      function toProxyApiUrl(pathname, search) {
+        var apiPath = pathname || "/";
+        if (!apiPath.startsWith("/")) apiPath = "/" + apiPath;
+        return location.origin + tryPrefix + apiPath + (search || "");
+      }
+
+      function isTargetOriginUrl(u) {
+        if (!target || !u) return false;
+        try {
+          const t = new URL(target);
+          return u.origin === t.origin;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function stripDisplayPath(text) {
+        if (!text) return text;
+        let s = text.replace(stripLegacyRe, "");
+        s = s.replace(stripAnyKnifeRe, "");
+        if (s.startsWith("//")) s = s.slice(1);
+        return s;
+      }
+
+      function rewriteUrl(url) {
+        if (!url || typeof url !== "string") return url;
+        let u;
+        try {
+          u = new URL(url, location.origin);
+        } catch (e) {
+          return url;
+        }
+        const path = u.pathname;
+
+        if (isTargetOriginUrl(u)) {
+          return toProxyApiUrl(u.pathname, u.search);
+        }
+
+        if (u.origin === location.origin) {
+          if (path.includes("swagger-config") || path.includes("swagger-resources")) {
+            return configPath;
+          }
+          if (path.includes("knife4j-openapi") || path.endsWith("/v3/api-docs")) {
+            return specPath;
+          }
+          if (isLocalStatic(path) || path.endsWith("/knife4j-doc.html")) {
+            return u.toString();
+          }
+          if (path === tryPrefix || path.startsWith(tryPrefix + "/")) {
+            return u.toString();
+          }
+          const stripPrefixes = [tryPrefix, legacyPrefix];
+          for (let i = 0; i < stripPrefixes.length; i++) {
+            const pre = stripPrefixes[i];
+            if (path === pre || path.startsWith(pre + "/")) {
+              if (isBootstrapPath(path)) return u.toString();
+              let apiPath = path.slice(pre.length);
+              if (!apiPath.startsWith("/")) apiPath = "/" + apiPath;
+              return toProxyApiUrl(apiPath, u.search);
+            }
+          }
+          if (path.startsWith("/knife4j/") && !isBootstrapPath(path) && !isLocalStatic(path)) {
+            const apiPath = path.replace(stripAnyKnifeRe, "") || "/";
+            return toProxyApiUrl(apiPath, u.search);
+          }
+          // Debug tab: same-origin proxy (avoids CORS OPTIONS preflight to real host)
+          if (!isReportServerPath(path) && !isLocalStatic(path)) {
+            return toProxyApiUrl(u.pathname, u.search);
+          }
+        }
+
+        if (url.startsWith("/v3/api-docs") || url.startsWith("/swagger-resources")) {
+          return configPath;
+        }
+        if (url.startsWith("/knife4j-openapi")) {
+          return specPath;
+        }
+        return url;
+      }
+
+      function fixKnife4jUI(root) {
+        if (!root) return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const t = node.textContent;
+          if (t && (t.indexOf(legacyPrefix) !== -1 || t.indexOf("/knife4j/") !== -1)) {
+            const next = stripDisplayPath(t);
+            if (next !== t) node.textContent = next;
+          }
+        }
+        root.querySelectorAll("input, textarea").forEach(function (el) {
+          const v = el.value;
+          if (!v) return;
+          if (v.indexOf(legacyPrefix) !== -1 || v.indexOf("/knife4j/") !== -1) {
+            const nv = stripDisplayPath(v);
+            if (nv !== v) el.value = nv;
+          }
+        });
+      }
+
+      const origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        let url = typeof input === "string" ? input : (input && input.url) || "";
+        url = rewriteUrl(url);
+        input = typeof input === "string" ? url : new Request(url, input);
+        return origFetch(input, init);
+      };
+      const origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url) {
+        arguments[1] = rewriteUrl(url);
+        return origOpen.apply(this, arguments);
+      };
+
+      function patchAxios(instance) {
+        if (!instance || instance.__knife4jPatched) return;
+        instance.__knife4jPatched = true;
+        instance.interceptors.request.use(function (cfg) {
+          if (cfg.url) cfg.url = rewriteUrl(cfg.url);
+          if (cfg.baseURL) cfg.baseURL = rewriteUrl(cfg.baseURL);
+          return cfg;
+        });
+      }
+      var axiosPoll = setInterval(function () {
+        if (window.axios) {
+          patchAxios(window.axios);
+          clearInterval(axiosPoll);
+        }
+      }, 50);
+
+      window.addEventListener("load", function () {
+        const app = document.getElementById("app");
+        if (!app) return;
+        fixKnife4jUI(app);
+        new MutationObserver(function () { fixKnife4jUI(app); })
+          .observe(app, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["value"] });
+      });
+    })();
+  </script>
+</head>
+<body>
+  <noscript><strong>请启用 JavaScript 以使用 Knife4j</strong></noscript>
+  <div id="app"></div>
+  <script src="/knife4j-assets/js/chunk-vendors.d51cf6f8.js"></script>
+  <script src="/knife4j-assets/js/app.c31badf5.js"></script>
+</body>
+</html>

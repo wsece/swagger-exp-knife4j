@@ -1,0 +1,14 @@
+/* Minor tweaks for Read the Docs theme */
+.wy-nav-content {
+  max-width: 1100px;
+}
+
+.wy-side-nav-search {
+  background-color: #343131;
+}
+
+.rst-content code.literal {
+  color: #404040;
+  border: 1px solid #e1e4e5;
+  background: #f3f6f6;
+}

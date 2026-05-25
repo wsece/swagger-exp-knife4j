@@ -1,0 +1,23 @@
+# 构建产物
+site/
+docs/sphinx/_build/
+swagger-exp-knife4j
+swagger-exp-knife4j.exe
+swagger-exp-knife4j-new.exe
+*.sqlite3
+output/
+result.csv
+result.jsonl
+*.log
+.env
+.env.*
+
+# Go
+*.test
+*.out
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db

@@ -1,188 +1,198 @@
-![swagger-exp-knife4j](https://socialify.git.ci/cws001/swagger-exp-knife4j/image?description=1&descriptionEditable=The%20Swagger%20interface%20based%20on%20Knife4j%20automates%20testing%20of%20unauthorized%20tools&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&stargazers=1&theme=Dark)
+# swagger-exp-knife4j
 
-# ✈️ 一、工具概述
+![swagger-exp-knife4j](https://socialify.git.ci/wsece/swagger-exp-knife4j/image?description=1&descriptionEditable=The%20Swagger%20interface%20based%20on%20Knife4j%20automates%20testing%20of%20unauthorized%20tools&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&stargazers=1&theme=Dark)
 
-springboot-exp-knif4j 主要用于Swagger接口分析 ，批量测试接口是否存在未授权。
+## Overview
 
-日常渗透过程中，经常会碰到Spring Boot搭建的微服务，当发现接口文档泄露时，手工测试API接口未授权工作量较大，于是参考了工具 [springboot-exp]:https://github.com/lijiejie/swagger-exp 的原理，开发了一款基 于Knife4j 的 Swagger 接口自动化测试未授权工具，较其他自动化测试工具而言，本工具增加了参数支持，优化了用户体验，改进了Swagger测试界面，并且支持自定义设置全局请求头参数。
+An automated discovery and probing tool for **Swagger / Knife4j / OpenAPI** API documentation.
 
-工具适用于 windos、linux ，适用于 Swagger API v2、v3。
+**swagger-exp-knife4j** is designed around common Swagger (OpenAPI 2/3) and Knife4j documentation entry patterns. Its core purpose is to batch-scan API specs for **unauthorized access** risks.
 
-**当前工具版本号：V1.1--2024/05/01**
+It runs standalone on **Web** and **CLI** across platforms for team workflows. Scan results can be reviewed in a **web report** UI. A custom **response similarity** pipeline (SimHash) helps organize probe data, assess risk, and present **Burp-style** request/response views. You can drive live API calls through an embedded **Knife4j** view and export API docs in multiple formats.
 
-# 📝 二、功能支持
+**MCP** integration ships with three built-in tools covering scan-through-report workflows, plus documented MCP tool contracts and extension hooks to reduce token overhead when you extend the project with AI assistants.
 
-- [ ] 支持本地开启HTTP服务打开Chrome，供分析接口使用。
+## Tech stack
 
-	- 接口测试页面为 `Knife4j`页面，支持自定义设置全局请求头参数。（集 Swagger2 和 OpenAPI3 为一体，兼容 OpenAPI 2.0、3.0）
+| Category   | Choice                                                   |
+| ---------- | -------------------------------------------------------- |
+| Language   | Go (see `go.mod`)                                        |
+| CLI        | [Cobra](https://github.com/spf13/cobra)                  |
+| ORM / DB   | GORM + SQLite                                            |
+| Web        | Standard library `net/http`, static assets via `go:embed` |
+| MCP        | [mcp-go](https://github.com/mark3labs/mcp-go) (stdio)    |
 
-	- 支持自动获取 `api-json` 的 API 集保存到本地 Knife4j 页面进行测试
+## Features
 
-	- 支持单独将 `api-json` 的 API 集放到本地 Knif4j 页面进行测试
+| Capability              | Description                                                                 |
+| ----------------------- | --------------------------------------------------------------------------- |
+| Web visualization       | Host-centric record browser; Burp-style Request/Response; list dedup & similarity sort; large-body preview slices |
+| Web-triggered scans     | Submit single URL, multi-line, or file batch jobs from the report UI          |
+| Dual runtime modes      | CLI for automation/skills + web server for interactive review               |
+| Multi-source doc entry  | `swagger.json`, `/v3/api-docs`, Knife4j, `doc.html`, and similar entry URLs |
+| Response similarity     | SimHash + Hamming grouping (`internal/islazy`); clustering fields in report API |
+| Configurable HTTP       | Headers, cookies, proxy, concurrency, timeouts—curl-style flags              |
+| MCP integration         | Standard MCP for LLM-driven scans and result analysis                       |
+| Structured probe records| Full metadata + raw HTTP exchange JSON (Burp-friendly)                        |
+| Extension points        | Hooks for custom scanners/writers/CLI/MCP—see docs “Module development”     |
 
-- [ ] 支持自动测试接口是否存在未授权的可能。
+## Commands
 
-	- 支持自动化 GET / POST 请求 api-doc 的所有接口，返回 Response Code / Content-Type / Content-Length
+Three top-level modules: **scan**, **report**, **mcp**
 
-	- 支持自动填充参数值去遍历所有API接口，用于分析接口是否可以未授权访问利用
+```bash
+Usage:
+  swagger-exp-knife4j [command]
 
-- [ ] 支持自动化分析接口是否存在敏感参数。
+Available Commands:
+  help        Help about any command
+  mcp         Model Context Protocol (MCP) server for AI clients
+  report      View stored Swagger scan reports
+  scan        Scan Swagger API interfaces
+  version     Show build version information
 
-	- 分析接口是否存在敏感参数，例如url参数，容易引入外网的SSRF漏洞
-
-- [ ] 检测 API认证绕过漏洞
-
-	- 当存在HTTP认证绕过漏洞时，本地服务器拦截API文档，修改path，以便直接在Swagger UI中进行测试
-
-- [ ] 支持扫描结果生成
-
-	- `result_ApiScanSummary.txt`	接口测试结果汇总（是一直累加的）
-	- `result_RequestDeny.txt`	自动化测试时，请求被拒绝的接口
-	- `result_sensitive.txt`	存在敏感参数的接口
-	- `result_UnAuthorized.txt`	可能存在未授权的接口
-
-# 🛸 三、 工具界面：
-
-## 0x01 控制台输出界面
-
-自动化 GET / POST 请求，疑似未授权的接口会标红显示，存在敏感参数的接口会标绿显示，扫描完成结果分类输出到文本。
-
-![image-20240428025116659](/image/image-20240428025116659.png)
-
-扫描完成本地自动开启 HTTP 服务进行监听，并打开禁用 CORS 的 Chrome，打开 Knife4j 界面，方便手工分析接口
-
-![image-20240428030229189](/image/image-20240428030229189.png)
-
-##  0x02 Knife4j 界面
-
-Knife4j 界面功能的使用参考官方文档：https://doc.xiaominfo.com
-
-**注意：（ Knife4j 界面里一定要在`个性化设置`手动勾选 HOST，再刷新页面，才能进行正常手工在页面进行测试）**
-
-![image-20240428031931404](/image/image-20240428031931404.png)
-
-1、支持自定义设置全局请求头参数。
-
-![image-20240428032119132](/image/image-20240428032119132.png)
-
-2、自动列出所有分组下接口数量，接口文档界面可更直观地预览接口参数描述
-
-![image-20240427225134294](/image/image-20240427225134294.png)
-
-3、可直接在 Knife4j 界面发起请求，调试接口。相比于原生Swagger-ui界面更符合用户使用习惯。
-
-![image-20240427225223789](/image/image-20240427225223789.png)
-
-# 🚨 四、工具使用注意
-
-- [ ] 一定要在`个性化设置`手动勾选 HOST，再刷新页面
-- [ ] 部分 HTTPS 网站测试时报错` Network Error`，可在`个性化设置` HOST 处加上协议号，如 https://example.com
-- [ ] 如果在控制台 `Ctrl+C` 卡住，关闭 chrome 浏览器则可以结束本地 HTTP 服务
-- [ ]  -u 指定 URL 时，路径末尾不要带多余的符号（如 #/）
-
-![image-20240428031931404](/image/image-20240428031931404.png)
-
-
-
-# 🐉 五、工具使用
-
-**注意：（ Knife4j 界面里一定要在`个性化设置`手动勾选 HOST，再刷新页面，才能进行正常测试）**
-
-### 1、本工具的参数如下：
-
-```
-➜ python swagger-exp-knife4j.py
-
-  ____                                     _____
-/ ___|_      ____ _  __ _  __ _  ___ _ __| ____|_  ___ __
-\___ \ \ /\ / / _` |/ _` |/ _` |/ _ \ '__|  _| \ \/ / '_ \
- ___) \ V  V / (_| | (_| | (_| |  __/ |  | |___ >  <| |_) |
-|____/ \_/\_/ \__,_|\__, |\__, |\___|_|  |_____/_/\_\ .__/
-                    |___/ |___/                     |_|
-
- _  __      _  __      _  _   _     +-------+
-| |/ /_ __ (_)/ _| ___| || | (_)    + v1.1  +
-| ' /| '_ \| | |_ / _ \ || |_| |    +-------+
-| . \| | | | |  _|  __/__   _| |
-|_|\_\_| |_|_|_|  \___|  |_|_/ |
-                           |__/
-
-
-参数：
-    -u  --url       指定 Swagger 相关URL
-    -c  --chrome    本地打开chrome禁用CORS，打开 Knife4j 界面
-
-用法:
-    只打开Knife4j 进行分析：             python3 swagger-exp-knife4j.py -c
-    扫描所有API集，分析接口是否存在未授权：  python3 swagger-exp-knife4j.py -u http://example.com/swagger-resources
-    扫描一个API集，分析接口是否存在未授权：  python3 swagger-exp-knife4j.py -u http://example.com/v2/api-docs
-    扫描一个API集，爬取api-doc打开Chrome：python3 swagger-exp-knife4j.py -u http://example.com/swagger-ui.html
-
-注意：
-    1、Knife4j 界面里一定要在 '个性化设置' 手动勾选 HOST 刷新页面,才能进行正常测试。
-    2、部分 HTTPS 网站测试时报错Network Error，可在个性化设置 HOST 处加上协议号，如 https://example.com
-
+Flags:
+  -D, --debug-log   Show debug logging
+  -h, --help        help for swagger-exp-knife4j
+  -q, --quiet       Silence (almost all) logging
 ```
 
+### scan
 
+```bash
+## Scans Swagger/Knife4j/OpenAPI targets and auto-probes interfaces.
+## Subcommands: single (one URL), file (URL list file).
 
+Usage:
+  swagger-exp-knife4j scan [command]
 
+Examples:
+swagger-exp-knife4j scan single -u https://example.com/doc.html --write-db
+swagger-exp-knife4j scan file -f targets.txt --write-db
 
-### 2、扫描 swagger-ui.html
+Available Commands:
+  file        Scan multiple targets listed in a file
+  single      Scan a single URL target
 
-扫描一个API集，工具自动爬取目标 `api-doc `内容，并保存到本地存为 `api-docs.json`，而后自动打开 Knife4j 界面
+Flags:
+      --connect-timeout duration   Max wait for TCP connect (default 30s)
+  -b, --cookie stringArray         Cookie string or file (repeatable), e.g. -b "session=abc"
+      --delay duration             Sleep between each API request (e.g. 100ms, 1s)
+      --docs-only                  Only resolve and dump OpenAPI JSON to --output-dir; skip automated API requests and --write-* outputs
+  -H, --header stringArray         Custom request header (repeatable), e.g. -H "Authorization: Bearer xxx"
+  -h, --help                       help for scan
+  -m, --max-timeout duration       Per-request timeout (0 = unlimited)
+      --output-dir string          Base directory for scan output ({host}/{scope}/api-docs.json) (default "output")
+  -P, --parallel int               Concurrent API request workers (default 1)
+  -x, --proxy string               HTTP proxy URL, e.g. -x http://127.0.0.1:8080
+  -A, --user-agent string          User-Agent string, e.g. -A "Mozilla/5.0"
+      --write-csv                  Write scan results to CSV (default result.csv)
+      --write-csv-file string      CSV file path (overrides --write-csv default)
+      --write-db                   Write scan results to database (default sqlite://swagger-scan.sqlite3)
+      --write-db-enable-debug      Show the database query debug logging
+      --write-db-uri string        Database URI (overrides --write-db default)
+      --write-jsonl                Write scan results to JSONL (default result.jsonl)
+      --write-jsonl-file string      JSONL file path (overrides --write-jsonl default)
 
-```
-python3 swagger-exp-knife4j.py -u http://example.com/swagger-ui.html
-```
+Global Flags:
+  -D, --debug-log   Show debug logging
+  -q, --quiet       Silence (almost all) logging
 
-![image-20240428031331211](/image/image-20240428031331211.png)
-
-### 2、只打开 Chrome 生成页面，不做任何扫描
-
-只打开禁用 CORS 的 chrome， 会把目录下的 `api-docs.json` 文件渲染到 Knife4j 界面供你测试。（所以当网站路径比较花哨，无法爬取到目标 api-doc 时，可以手动把网站 /api-docs 内容保存到本地的`api-docs.json`，然后 ` -c` 打开 Chrome）
-
-```
-python3 swagger-exp-knife4j.py -c
-```
-
-![image-20240427221626545](/image/image-20240427221626545.png)
-
-### 4、扫描 /api-docs
-
-扫描一个API集，工具自动分析接口是否存在未授权，疑似存在未授权的接口保存在 `result_UnAuthorized.txt`，而后自动打开 Knife4j 界面
-
-```
-python3 swagger-exp-knife4j.py -u http://example.com/v2/api-docs
-```
-
-### 3、扫描 /swagger-resources
-
-扫描所有API集，工具自动分析接口是否存在未授权，疑似存在未授权的接口保存在 `result_UnAuthorized.txt`，而后自动打开 Knife4j 界面
-
-```
-python3 swagger-exp-knife4j.py -u http://example.com/swagger-resources
-```
-
-# 🖐 六、其他
-### 1、linux下 chrome 的安装
-
-```
-//1、将Google Chrome的官方仓库添加到系统中：
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-//2、安装Google Chrome：
-sudo dpkg -i google-chrome-stable_current_amd64.deb
-//3、如果遇到任何依赖问题，执行以下命令修复：
-sudo apt-get install -f
-//4、而后指定参数 -c 看能否正常生成禁用CORS请求的chrome
-python3 swagger-exp-knife4j.py -c
+Use "swagger-exp-knife4j scan [command] --help" for more information about a command.
 ```
 
-# 🖐 七、免责声明
+### report
 
+```bash
+## View stored scan results and browse them in the terminal or web UI.
 
+Usage:
+  swagger-exp-knife4j report [command]
 
-如果您下载使用即表明您信任本工具，在使用时造成的损失和伤害，我们不承担任何责任。使用本工具的过程中存在任何非法行为需自行承担相应后果，我们将不承担任何法律及连带责任。您的下载、安装、使用等行为即视为您已阅读并同意上述协议的约束
+Examples:
+swagger-exp-knife4j report list
+swagger-exp-knife4j report server
 
+Available Commands:
+  list        List API scan records from the database
+  server      Start local web server to browse scan results
 
-![Star History Chart](https://api.star-history.com/svg?repos=cws001/swagger-exp-knife4j&type=Date)
+Flags:
+      --db-uri string   Swagger scan database URI (e.g. sqlite://swagger-scan.sqlite3) (default "sqlite://swagger-scan.sqlite3")
+  -h, --help            help for report
+
+Global Flags:
+  -D, --debug-log   Show debug logging
+  -q, --quiet       Silence (almost all) logging
+
+Use "swagger-exp-knife4j report [command] --help" for more information about a command.
+```
+
+### mcp
+
+```bash
+## Start the MCP service for large language model clients.
+
+Usage:
+  swagger-exp-knife4j mcp [command]
+
+Examples:
+swagger-exp-knife4j mcp serve
+
+Available Commands:
+  serve       Run MCP server on stdio (for Cursor / Claude Desktop)
+
+Flags:
+  -h, --help   help for mcp
+
+Global Flags:
+  -D, --debug-log   Show debug logging
+  -q, --quiet       Silence (almost all) logging
+
+Use "swagger-exp-knife4j mcp [command] --help" for more information about a command.
+```
+
+## Quick start
+
+```bash
+# Build
+go build -o swagger-exp-knife4j .
+
+# Scan: -u is a Swagger UI page or OpenAPI JSON URL; probes GET/POST endpoints; --write-db persists to default SQLite
+swagger-exp-knife4j scan single -u https://example.com/doc.html --write-db -q
+
+# Local report server (supports submitting new scan jobs from the web UI)
+swagger-exp-knife4j report server
+```
+
+Open **http://127.0.0.1:7171/** in your browser.
+
+- Select a **Host** on the left to load the probe table (data from SQLite).
+- Middle panel: **Latest request only** (dedupe by Method + path), **Sort by similar response** (SimHash cluster fields).
+- Select a row to inspect Request/Response on the right (body preview capped at 64 KiB).
+- **API Docs** previews OpenAPI from `./output`; **Open Knife4j** sends try-it requests via the report server reverse proxy—see [Knife4j docs](https://doc.xiaominfo.com/docs/blog).
+- Collapsible **Submit scan task** at the top for new scans.
+
+![pic_report](./docs/pic_report.jpg)
+
+![pic_report2](./docs/pic_report2.jpg)
+
+![pic_knife4j](./docs/pic_knife4j.jpg)
+
+## Docker
+
+```bash
+docker compose up -d --build
+```
+
+SQLite and `output/` are persisted via volumes. Scan examples: [docs/docker.md](docs/docker.md).
+
+## Documentation
+
+Project documentation (white-paper style): [wiki_swagger-exp-knife4j](https://wsece.github.io/wiki_swagger-exp-knife4j/)
+
+## License & disclaimer
+
+By downloading or using this tool, you indicate that you accept it as-is. We are **not liable** for any loss or harm arising from its use. Any illegal use is solely your responsibility; we assume **no legal liability**. Downloading, installing, or using the software constitutes acceptance of this disclaimer.
+
+![Star History Chart](https://api.star-history.com/svg?repos=wsece/swagger-exp-knife4j&type=Date)

@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swagger Scan Report</title>
+  <style>
+    :root {
+      --bg: #0f1419; --panel: #1a2332; --border: #2d3a4f;
+      --text: #e7ecf3; --muted: #8b9cb3; --accent: #3d8bfd;
+      --risk: #f85149; --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    header span { color: var(--muted); font-size: 0.85rem; }
+    .layout { flex: 1; display: grid; grid-template-columns: 280px 1fr minmax(420px, 34vw); min-height: 0; }
+    .sidebar { border-right: 1px solid var(--border); overflow-y: auto; background: var(--panel); }
+    .sidebar h2 { margin: 0; padding: 12px 14px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+    .item:hover, .item.active { background: #243044; }
+    .item .title { font-weight: 500; font-size: 0.9rem; word-break: break-all; }
+    .item .meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .item .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .item .badge { display: inline-block; margin-top: 4px; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; background: #2d3a4f; margin-right: 4px; }
+    .item .badge.risk { background: rgba(248,81,73,0.2); color: var(--risk); }
+    .btn-render { flex-shrink: 0; padding: 3px 8px; font-size: 0.7rem; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 4px; cursor: pointer; }
+    .btn-render:hover { background: var(--accent); color: #fff; }
+    .records-toolbar { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn-toolbar { padding: 4px 10px; font-size: 0.75rem; border: 1px solid var(--border); background: #243044; color: var(--text); border-radius: 6px; cursor: pointer; white-space: nowrap; }
+    .btn-toolbar:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-toolbar.active { border-color: var(--accent); background: rgba(61,139,253,0.15); color: var(--accent); }
+    .main, .right { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+    .panel-head { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .panel-head strong { color: var(--text); }
+    .count-pill { background: #2d3a4f; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--bg); cursor: pointer; user-select: none; white-space: nowrap; }
+    th:hover { color: var(--text); }
+    th .sort { opacity: 0.5; font-size: 0.65rem; margin-left: 4px; }
+    th.sorted .sort { opacity: 1; color: var(--accent); }
+    tr:hover td { background: #1a2332; }
+    tr.selected td { background: #243044; }
+    tr { cursor: pointer; }
+    .table-wrap { flex: 1; overflow: auto; }
+    .status-2xx { color: var(--ok); }
+    .status-4xx { color: #d29922; }
+    .status-5xx { color: var(--risk); }
+    .status-fail { color: var(--risk); }
+    .right-body { flex: 1; overflow: auto; padding: 12px; min-height: 0; }
+    .right-body.burp-mode { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .burp-detail { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .burp-meta { flex-shrink: 0; padding: 8px 12px; font-size: 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); background: #12181f; line-height: 1.5; }
+    .burp-meta strong { color: var(--text); }
+    .burp-meta .tag { display: inline-block; margin-right: 8px; padding: 1px 6px; border-radius: 4px; background: #2d3a4f; font-size: 0.7rem; }
+    .burp-meta .tag.risk { background: rgba(248,81,73,0.2); color: var(--risk); }
+    .burp-split { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .burp-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--border); }
+    .burp-pane:last-child { border-bottom: none; }
+    .burp-toolbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; background: #12181f; border-bottom: 1px solid var(--border); }
+    .burp-toolbar .pane-title { font-weight: 600; font-size: 0.82rem; color: var(--text); }
+    .burp-tabs { display: flex; gap: 4px; }
+    .burp-tabs button { padding: 3px 10px; font-size: 0.72rem; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 4px; cursor: pointer; }
+    .burp-tabs button:hover { color: var(--text); border-color: var(--muted); }
+    .burp-tabs button.active { background: #2d3a4f; color: var(--text); border-color: var(--accent); }
+    .burp-content { flex: 1; margin: 0; overflow: auto; padding: 10px 12px; font-family: Consolas, "Cascadia Mono", "Courier New", monospace; font-size: 0.76rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #0c1016; color: #c9d1d9; min-height: 0; }
+    .burp-content .hl-method { color: #79c0ff; }
+    .burp-content .hl-status { color: #3fb950; }
+    .burp-content .hl-header { color: #d2a8ff; }
+    .preview-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); min-height: 280px; background: #12181f; }
+    .preview-blur { filter: blur(6px); transform: scale(1.02); padding: 16px; font-size: 0.75rem; line-height: 1.5; color: #6b7c93; max-height: 360px; overflow: hidden; pointer-events: none; user-select: none; white-space: pre-wrap; word-break: break-all; }
+    .preview-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(15,20,25,0.55); backdrop-filter: blur(2px); }
+    .preview-overlay h3 { margin: 0; font-size: 1rem; }
+    .preview-overlay p { margin: 0; color: var(--muted); font-size: 0.8rem; }
+    .path-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .path-chips span { font-size: 0.7rem; padding: 3px 8px; background: #2d3a4f; border-radius: 4px; color: var(--muted); }
+    .empty { padding: 16px; color: var(--muted); text-align: center; font-size: 0.8rem; line-height: 1.5; }
+    .hidden { display: none !important; }
+    .err-banner { background: rgba(248,81,73,0.15); color: var(--risk); padding: 8px 14px; font-size: 0.8rem; border-bottom: 1px solid var(--risk); }
+    .scan-bar { border-bottom: 1px solid var(--border); background: var(--panel); padding: 12px 20px; }
+    .scan-bar summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; user-select: none; }
+    .scan-grid { display: grid; grid-template-columns: 1fr 1fr 280px; gap: 14px; margin-top: 12px; align-items: start; }
+    @media (max-width: 1100px) { .scan-grid { grid-template-columns: 1fr; } }
+    .scan-box label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+    .scan-box input[type=text], .scan-box textarea { width: 100%; background: #12181f; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; }
+    .scan-box textarea { min-height: 88px; resize: vertical; }
+    .scan-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .btn-primary { padding: 6px 14px; font-size: 0.8rem; border: none; background: var(--accent); color: #fff; border-radius: 6px; cursor: pointer; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .task-list { max-height: 160px; overflow-y: auto; font-size: 0.78rem; }
+    .task-item { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; background: #12181f; }
+    .task-item .tid { font-family: monospace; color: var(--accent); }
+    .task-item .st-pending { color: var(--muted); }
+    .task-item .st-running { color: #d29922; }
+    .task-item .st-completed { color: var(--ok); }
+    .task-item .st-failed { color: var(--risk); }
+    .ok-banner { background: rgba(63,185,80,0.12); color: var(--ok); padding: 8px 14px; font-size: 0.8rem; border-bottom: 1px solid var(--ok); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Swagger Scan Report</h1>
+    <span id="subtitle">loading...</span>
+  </header>
+  <div id="ok-banner" class="ok-banner hidden"></div>
+  <div id="err-banner" class="err-banner hidden"></div>
+  <details class="scan-bar" id="scan-panel">
+    <summary>下发扫描任务</summary>
+    <div class="scan-grid">
+      <div class="scan-box">
+        <label for="scan-url">单个 URL</label>
+        <input type="text" id="scan-url" placeholder="https://example.com/doc.html 或 swagger.json" />
+        <div class="scan-actions"><button type="button" class="btn-primary" id="btn-scan-single">扫描</button></div>
+      </div>
+      <div class="scan-box">
+        <label for="scan-urls-text">批量 URL（每行一个，# 开头为注释）</label>
+        <textarea id="scan-urls-text" placeholder="https://a.com/swagger.json&#10;https://b.com/doc.html"></textarea>
+        <div class="scan-actions"><button type="button" class="btn-primary" id="btn-scan-batch">批量扫描</button></div>
+      </div>
+      <div class="scan-box">
+        <label for="scan-file">或上传目标文件</label>
+        <input type="file" id="scan-file" accept=".txt,.list,.urls" />
+        <div class="scan-actions"><button type="button" class="btn-primary" id="btn-scan-file">上传并扫描</button></div>
+      </div>
+      <div class="scan-box">
+        <label>任务队列</label>
+        <div class="task-list" id="task-list"><div class="empty">暂无任务</div></div>
+      </div>
+    </div>
+  </details>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Hosts (DB)</h2>
+      <div id="hosts"></div>
+      <h2>API Docs (output)</h2>
+      <div id="sessions"></div>
+    </aside>
+    <section class="main">
+      <div class="panel-head" id="records-title">
+        <span id="records-title-text">Select a host to view API records</span>
+        <span class="count-pill hidden" id="api-count"></span>
+        <div class="records-toolbar">
+          <button type="button" class="btn-toolbar hidden" id="btn-dedupe-latest" title="同一 Method + 路径只保留最近一次扫描">仅最新请求</button>
+          <button type="button" class="btn-toolbar hidden" id="btn-sort-similarity" title="SimHash 聚类，相似响应体排在相邻行">按相似响应排序</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr id="table-head">
+              <th data-key="when">When<span class="sort">-</span></th>
+              <th data-key="method">Method<span class="sort">-</span></th>
+              <th data-key="api">API<span class="sort">-</span></th>
+              <th data-key="status_code">Status<span class="sort">-</span></th>
+              <th data-key="risk">Risk<span class="sort">-</span></th>
+            </tr>
+          </thead>
+          <tbody id="records-body"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="right">
+      <div class="panel-head" id="right-title">Detail / API Docs preview</div>
+      <div class="right-body">
+        <div id="record-detail" class="hidden burp-detail">
+          <div class="burp-meta" id="burp-meta"></div>
+          <div class="burp-split">
+            <div class="burp-pane burp-request">
+              <div class="burp-toolbar">
+                <span class="pane-title">Request</span>
+                <div class="burp-tabs" data-pane="request">
+                  <button type="button" class="active" data-view="raw">Raw</button>
+                  <button type="button" data-view="pretty">Pretty</button>
+                </div>
+              </div>
+              <pre class="burp-content" id="burp-request-body" spellcheck="false"></pre>
+            </div>
+            <div class="burp-pane burp-response">
+              <div class="burp-toolbar">
+                <span class="pane-title">Response</span>
+                <div class="burp-tabs" data-pane="response">
+                  <button type="button" class="active" data-view="raw">Raw</button>
+                  <button type="button" data-view="pretty">Pretty</button>
+                </div>
+              </div>
+              <pre class="burp-content" id="burp-response-body" spellcheck="false"></pre>
+            </div>
+          </div>
+        </div>
+        <div id="doc-preview" class="hidden">
+          <div class="preview-wrap">
+            <div class="preview-blur" id="preview-blur"></div>
+            <div class="preview-overlay">
+              <h3 id="preview-title">API Documentation</h3>
+              <p id="preview-meta"></p>
+              <button class="btn-render" id="preview-render-btn" type="button">Open Knife4j</button>
+            </div>
+          </div>
+          <div class="path-chips" id="preview-paths"></div>
+        </div>
+        <div id="right-empty" class="empty">Click an API row for request/response, or pick API Docs to preview</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let currentHost = null;
+    let currentRecords = [];
+    let selectedSessionId = null;
+    let sortKey = 'when';
+    let sortAsc = false;
+    let dedupeLatestOnly = false;
+
+    const pollTimers = {};
+
+    function showOk(msg) {
+      const el = document.getElementById('ok-banner');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 8000);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('err-banner');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    async function api(path, options) {
+      const r = await fetch(path, options);
+      const text = await r.text();
+      if (!r.ok) {
+        let msg = text || r.statusText;
+        try { const j = JSON.parse(text); if (j.error) msg = j.error; } catch (_) {}
+        throw new Error(msg);
+      }
+      return text ? JSON.parse(text) : {};
+    }
+
+    async function apiPostJSON(path, body) {
+      return api(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    async function apiPostMultipart(path, formData) {
+      return api(path, { method: 'POST', body: formData });
+    }
+
+    function fmtTime(t) {
+      if (!t) return '-';
+      const d = new Date(t);
+      return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+    }
+
+    function statusClass(r) {
+      if (r.failed && !r.status_code) return 'status-fail';
+      const c = r.status_code;
+      if (c >= 200 && c < 300) return 'status-2xx';
+      if (c >= 400 && c < 500) return 'status-4xx';
+      if (c >= 500) return 'status-5xx';
+      return '';
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function openKnife4j(sessionId) {
+      window.open('/knife4j-doc.html?session=' + encodeURIComponent(sessionId), '_blank', 'noopener');
+    }
+
+    function asArray(v) {
+      return Array.isArray(v) ? v : [];
+    }
+
+    function renderHosts(hosts) {
+      hosts = asArray(hosts);
+      const el = document.getElementById('hosts');
+      if (!hosts.length) {
+        el.innerHTML = '<div class="empty">No DB records<br>Run scan with --write-db-uri</div>';
+        return;
+      }
+      el.innerHTML = hosts.map(h => {
+        const session = escapeHtml(h.doc_session_id || '');
+        const host = escapeHtml(h.host);
+        return '<div class="item" data-host="' + host + '" data-session="' + session + '">' +
+          '<div class="title">' + host + '</div>' +
+          '<div class="meta">' + h.record_count + ' APIs &middot; ' + fmtTime(h.last_scanned) + '</div>' +
+          (h.risk_count ? '<span class="badge risk">' + h.risk_count + ' non-401</span>' : '') +
+          (h.doc_session_id ? '<span class="badge">api-docs</span>' : '') +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('.item').forEach(n => {
+        n.addEventListener('click', () => selectHost(n.dataset.host, n.dataset.session));
+      });
+    }
+
+    function renderSessions(sessions) {
+      sessions = asArray(sessions);
+      const el = document.getElementById('sessions');
+      if (!sessions.length) {
+        el.innerHTML = '<div class="empty">No api-docs.json under output/<br>Scan creates output/{host}/{scope}/api-docs.json</div>';
+        return;
+      }
+      el.innerHTML = sessions.map(s => {
+        const id = escapeHtml(s.id);
+        const host = escapeHtml(s.host);
+        return '<div class="item session-item" data-id="' + id + '" data-host="' + host + '">' +
+          '<div class="row"><div>' +
+          '<div class="title">' + id + '</div>' +
+          '<div class="meta">' + host + ' &middot; ' + fmtTime(s.scanned_at) + '</div>' +
+          '</div><button class="btn-render" type="button" data-session="' + id + '">Open</button></div></div>';
+      }).join('');
+      el.querySelectorAll('.session-item').forEach(node => {
+        node.addEventListener('click', e => {
+          if (e.target.classList.contains('btn-render')) return;
+          selectSession(node.dataset.id, node.dataset.host);
+        });
+      });
+      el.querySelectorAll('.btn-render').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); openKnife4j(btn.dataset.session); });
+      });
+    }
+
+    function similaritySortTuple(r) {
+      const cluster = r.similarity_cluster > 0 ? r.similarity_cluster : 1_000_000;
+      const dist = r.similarity_distance || 0;
+      const tie = (r.method || '') + ' ' + (r.api || '');
+      return [cluster, dist, tie];
+    }
+
+    function compareTuples(a, b) {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const av = a[i], bv = b[i];
+        if (av < bv) return -1;
+        if (av > bv) return 1;
+      }
+      return 0;
+    }
+
+    function recordDedupeKey(r) {
+      return (String(r.method || '').toUpperCase()) + '\n' + String(r.api || '');
+    }
+
+    function recordWhenMs(r) {
+      const d = new Date(r.when || r.scanned_at);
+      const t = d.getTime();
+      return isNaN(t) ? 0 : t;
+    }
+
+    function filterLatestPerRequest(records) {
+      const latest = new Map();
+      for (const r of records) {
+        const key = recordDedupeKey(r);
+        const prev = latest.get(key);
+        if (!prev) {
+          latest.set(key, r);
+          continue;
+        }
+        const tNew = recordWhenMs(r);
+        const tOld = recordWhenMs(prev);
+        const idNew = Number(r.id) || 0;
+        const idOld = Number(prev.id) || 0;
+        if (tNew > tOld || (tNew === tOld && idNew > idOld)) {
+          latest.set(key, r);
+        }
+      }
+      return [...latest.values()];
+    }
+
+    function visibleRecords() {
+      return dedupeLatestOnly ? filterLatestPerRequest(currentRecords) : currentRecords;
+    }
+
+    function updateApiCount() {
+      const countEl = document.getElementById('api-count');
+      if (!countEl) return;
+      const total = currentRecords.length;
+      const shown = visibleRecords().length;
+      if (dedupeLatestOnly && shown < total) {
+        countEl.textContent = shown + ' / ' + total + ' APIs（仅最新）';
+      } else {
+        countEl.textContent = total + ' APIs';
+      }
+    }
+
+    function updateRecordsToolbar() {
+      const hasRows = currentRecords.length > 0;
+      const dedupeBtn = document.getElementById('btn-dedupe-latest');
+      const simBtn = document.getElementById('btn-sort-similarity');
+      if (dedupeBtn) {
+        dedupeBtn.classList.toggle('hidden', !hasRows);
+        dedupeBtn.classList.toggle('active', dedupeLatestOnly);
+      }
+      if (simBtn) simBtn.classList.toggle('hidden', !hasRows);
+    }
+
+    function sortRecords(records) {
+      const copy = [...records];
+      copy.sort((a, b) => {
+        let va, vb;
+        switch (sortKey) {
+          case 'when': va = new Date(a.when || a.scanned_at); vb = new Date(b.when || b.scanned_at); break;
+          case 'method': va = a.method || ''; vb = b.method || ''; break;
+          case 'api': va = a.api || ''; vb = b.api || ''; break;
+          case 'status_code': va = a.status_code || 0; vb = b.status_code || 0; break;
+          case 'risk': va = a.unauthorized_risk ? 1 : 0; vb = b.unauthorized_risk ? 1 : 0; break;
+          case 'similarity':
+            va = similaritySortTuple(a);
+            vb = similaritySortTuple(b);
+            break;
+          default: va = a[sortKey]; vb = b[sortKey];
+        }
+        if (sortKey === 'similarity') {
+          const c = compareTuples(va, vb);
+          return sortAsc ? c : -c;
+        }
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+      });
+      return copy;
+    }
+
+    function updateSortHeaders() {
+      const simBtn = document.getElementById('btn-sort-similarity');
+      if (simBtn) simBtn.classList.toggle('active', sortKey === 'similarity');
+      document.querySelectorAll('#table-head th').forEach(th => {
+        th.classList.toggle('sorted', th.dataset.key === sortKey);
+        const arrow = th.querySelector('.sort');
+        if (th.dataset.key === sortKey) arrow.textContent = sortAsc ? '^' : 'v';
+        else arrow.textContent = '-';
+      });
+    }
+
+    function renderTable() {
+      const sorted = sortRecords(visibleRecords());
+      updateApiCount();
+      const tbody = document.getElementById('records-body');
+      if (!sorted.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">No API records for this host</td></tr>';
+        updateSortHeaders();
+        return;
+      }
+      tbody.innerHTML = sorted.map(r => {
+        const api = r.api || '';
+        const shortApi = api.length > 48 ? api.slice(0, 48) + '...' : api;
+        return '<tr data-id="' + r.id + '">' +
+          '<td>' + fmtTime(r.when || r.scanned_at) + '</td>' +
+          '<td>' + escapeHtml(r.method) + '</td>' +
+          '<td title="' + escapeHtml(api) + '">' + escapeHtml(shortApi) + '</td>' +
+          '<td class="' + statusClass(r) + '">' + (r.failed && !r.status_code ? 'FAIL' : (r.status_code || '-')) + '</td>' +
+          '<td>' + (r.unauthorized_risk ? '!' : '') + '</td></tr>';
+      }).join('');
+      tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+        tr.addEventListener('click', () => {
+          tbody.querySelectorAll('tr').forEach(x => x.classList.remove('selected'));
+          tr.classList.add('selected');
+          showRecordDetail(tr.dataset.id);
+        });
+      });
+      updateSortHeaders();
+    }
+
+    async function selectHost(host, sessionId) {
+      currentHost = host;
+      document.querySelectorAll('#hosts .item').forEach(n => n.classList.toggle('active', n.dataset.host === host));
+      const titleEl = document.getElementById('records-title-text');
+      if (titleEl) titleEl.innerHTML = '<strong>' + escapeHtml(host) + '</strong> API records';
+      try {
+        currentRecords = await api('/api/hosts/' + encodeURIComponent(host) + '/records');
+      } catch (e) {
+        currentRecords = [];
+        showError('load records: ' + e.message);
+      }
+      const countEl = document.getElementById('api-count');
+      if (countEl) countEl.classList.remove('hidden');
+      updateRecordsToolbar();
+      renderTable();
+      if (sessionId) await selectSession(sessionId, host, false);
+    }
+
+    async function selectSession(sessionId, host, switchHost) {
+      selectedSessionId = sessionId;
+      document.querySelectorAll('#sessions .item').forEach(n => n.classList.toggle('active', n.dataset.id === sessionId));
+      if (switchHost !== false && host && host !== currentHost) await selectHost(host, sessionId);
+
+      document.getElementById('record-detail').classList.add('hidden');
+      document.getElementById('doc-preview').classList.remove('hidden');
+      document.getElementById('right-empty').classList.add('hidden');
+      document.querySelector('.right-body').classList.remove('burp-mode');
+      document.getElementById('right-title').innerHTML = 'API Docs &middot; <strong>' + escapeHtml(sessionId) + '</strong>';
+
+      try {
+        const preview = await api('/api/docs/' + encodeURIComponent(sessionId) + '/preview');
+        document.getElementById('preview-title').textContent = preview.title || 'OpenAPI';
+        document.getElementById('preview-meta').textContent =
+          (preview.path_count || 0) + ' paths &middot; OpenAPI ' + (preview.version || '-');
+        document.getElementById('preview-blur').textContent = preview.excerpt || '';
+        document.getElementById('preview-paths').innerHTML = (preview.paths || [])
+          .map(p => '<span>' + escapeHtml(p) + '</span>').join('');
+        document.getElementById('preview-render-btn').onclick = () => openKnife4j(sessionId);
+      } catch (e) {
+        showError('preview: ' + e.message);
+      }
+    }
+
+    let burpViews = { request: 'raw', response: 'raw' };
+    let currentBurpPacket = null;
+    let currentBurpRecord = null;
+    const BURP_MAX_BODY_CHARS = 64 * 1024;
+    const BURP_MAX_PRETTY_PARSE_CHARS = 256 * 1024;
+    const BURP_MAX_HEADER_CHARS = 2048;
+
+    function formatBytes(n) {
+      n = Number(n) || 0;
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function sliceBody(text, label) {
+      const s = text == null ? '' : String(text);
+      if (s.length <= BURP_MAX_BODY_CHARS) return { text: s, truncated: false, total: s.length };
+      return {
+        text: s.slice(0, BURP_MAX_BODY_CHARS) + '\n\n... [' + label + ' truncated: preview ' + formatBytes(BURP_MAX_BODY_CHARS) +
+          ' of ' + formatBytes(s.length) + ']',
+        truncated: true,
+        total: s.length,
+      };
+    }
+
+    function fmtHeaderLine(h) {
+      if (!h || !h.name) return '';
+      let v = h.value == null ? '' : String(h.value);
+      if (v.length > BURP_MAX_HEADER_CHARS) {
+        v = v.slice(0, BURP_MAX_HEADER_CHARS) + '… (header value truncated)';
+      }
+      return h.name + ': ' + v;
+    }
+
+    function packetFromRecord(r) {
+      if (r.packet && r.packet.request) return r.packet;
+      return {
+        meta: {
+          host: r.host, path: r.api, method: r.method,
+          parameter_names: r.parameter_names,
+          failed: r.failed, error: r.failed_reason,
+          unauthorized_risk: r.unauthorized_risk,
+          duration_ms: r.duration_ms,
+        },
+        request: {
+          method: r.method,
+          url: r.host ? ('https://' + r.host + r.api + (r.request_params ? ('?' + r.request_params) : '')) : '',
+          http_version: 'HTTP/1.1',
+          headers: [].concat(
+            r.cookie ? [{ name: 'Cookie', value: r.cookie }] : [],
+            r.user_agent ? [{ name: 'User-Agent', value: r.user_agent }] : [],
+            r.authorization ? [{ name: 'Authorization', value: r.authorization }] : []
+          ),
+          body: r.request_body || '',
+        },
+        response: {
+          http_version: 'HTTP/1.1',
+          status: r.status_code,
+          status_line: r.status_code ? (r.status_code + ' ' + (r.status_code === 401 ? 'Unauthorized' : 'OK')) : '',
+          body: r.response_body || '',
+        },
+      };
+    }
+
+    function prettyBody(text) {
+      const raw = text == null ? '' : String(text);
+      if (!raw.trim()) return { text: '', truncated: false, total: 0 };
+      if (raw.length > BURP_MAX_PRETTY_PARSE_CHARS) {
+        return sliceBody(raw, 'body too large for Pretty; use Raw or export from DB');
+      }
+      try {
+        return sliceBody(JSON.stringify(JSON.parse(raw), null, 2), 'pretty body');
+      } catch (_) {
+        return sliceBody(raw, 'body');
+      }
+    }
+
+    function urlPathAndHost(rawUrl) {
+      if (!rawUrl) return { path: '/', host: '' };
+      try {
+        const u = new URL(rawUrl);
+        return { path: u.pathname + u.search, host: u.host };
+      } catch (_) {
+        return { path: rawUrl, host: '' };
+      }
+    }
+
+    function formatRawRequest(req) {
+      const method = (req.method || 'GET').toUpperCase();
+      const ver = req.http_version || 'HTTP/1.1';
+      const pu = urlPathAndHost(req.url || '');
+      const lines = [method + ' ' + pu.path + ' ' + ver];
+      const headers = req.headers || [];
+      let hasHost = false;
+      headers.forEach(h => {
+        if (!h || !h.name) return;
+        if (h.name.toLowerCase() === 'host') hasHost = true;
+        lines.push(fmtHeaderLine(h));
+      });
+      if (!hasHost && pu.host) lines.splice(1, 0, 'Host: ' + pu.host);
+      const sliced = sliceBody(req.body || '', 'request body');
+      if (sliced.text) {
+        lines.push('');
+        lines.push(sliced.text);
+      }
+      return { text: lines.join('\n'), reqTrunc: sliced.truncated, resTrunc: false };
+    }
+
+    function formatRawResponse(res) {
+      const ver = res.http_version || 'HTTP/1.1';
+      let statusLine = res.status_line || '';
+      if (!statusLine && res.status) statusLine = res.status + ' ' + (res.status === 401 ? 'Unauthorized' : 'OK');
+      if (!statusLine) statusLine = '-';
+      if (!String(statusLine).toUpperCase().startsWith('HTTP')) statusLine = ver + ' ' + statusLine;
+      const lines = [statusLine];
+      (res.headers || []).forEach(h => {
+        if (h && h.name) lines.push(fmtHeaderLine(h));
+      });
+      const sliced = sliceBody(res.body || '', 'response body');
+      if (sliced.text) {
+        lines.push('');
+        lines.push(sliced.text);
+      }
+      return { text: lines.join('\n'), reqTrunc: false, resTrunc: sliced.truncated };
+    }
+
+    function formatPrettyRequest(req) {
+      const pu = urlPathAndHost(req.url || '');
+      const lines = [
+        (req.method || 'GET').toUpperCase() + ' ' + pu.path,
+        req.url ? ('URL: ' + req.url) : '',
+        '',
+        '--- Headers ---',
+      ];
+      (req.headers || []).forEach(h => { if (h && h.name) lines.push(fmtHeaderLine(h)); });
+      const body = prettyBody(req.body || '');
+      if (body.text) {
+        lines.push('', '--- Body ---', body.text);
+      }
+      return {
+        text: lines.filter((l, i, a) => i > 0 || l !== '' || a.length === 1).join('\n').trim(),
+        reqTrunc: body.truncated,
+        resTrunc: false,
+      };
+    }
+
+    function formatPrettyResponse(res) {
+      const lines = [
+        res.status_line || (res.status ? ('Status: ' + res.status) : 'Status: -'),
+        '',
+        '--- Headers ---',
+      ];
+      (res.headers || []).forEach(h => { if (h && h.name) lines.push(fmtHeaderLine(h)); });
+      const body = prettyBody(res.body || '');
+      if (body.text) {
+        lines.push('', '--- Body ---', body.text);
+      }
+      return { text: lines.join('\n'), reqTrunc: false, resTrunc: body.truncated };
+    }
+
+    function formatBurpSide(part, msgPart) {
+      const msg = msgPart || {};
+      if (burpViews[part] === 'pretty') {
+        return part === 'request' ? formatPrettyRequest(msg) : formatPrettyResponse(msg);
+      }
+      return part === 'request' ? formatRawRequest(msg) : formatRawResponse(msg);
+    }
+
+    function renderBurpPane(pane, packet) {
+      const req = packet.request || {};
+      const res = packet.response || {};
+      const reqFmt = formatBurpSide('request', req);
+      const resFmt = formatBurpSide('response', res);
+      document.getElementById('burp-request-body').textContent = reqFmt.text || '(empty request)';
+      document.getElementById('burp-response-body').textContent = resFmt.text || '(empty response)';
+      return { reqTrunc: reqFmt.reqTrunc, resTrunc: resFmt.resTrunc };
+    }
+
+    function renderBurpMeta(packet, r, trunc) {
+      const m = packet.meta || {};
+      const parts = [];
+      if (m.duration_ms) parts.push('<span class="tag">' + m.duration_ms + ' ms</span>');
+      if (m.parameter_names) parts.push('<span class="tag">' + escapeHtml(m.parameter_names) + '</span>');
+      if (m.unauthorized_risk || r.unauthorized_risk) parts.push('<span class="tag risk">non-401</span>');
+      if (m.failed || r.failed) parts.push('<span class="tag risk">failed</span>');
+      if (m.error || r.failed_reason) parts.push('<span class="tag risk">' + escapeHtml(m.error || r.failed_reason) + '</span>');
+      const req = packet.request || {};
+      const res = packet.response || {};
+      const resLen = res.body_length || (res.body ? String(res.body).length : 0);
+      const reqLen = req.body_length || (req.body ? String(req.body).length : 0);
+      if (trunc && trunc.resTrunc) {
+        parts.push('<span class="tag">response ' + formatBytes(BURP_MAX_BODY_CHARS) + ' / ' + formatBytes(resLen) + ' preview</span>');
+      }
+      if (trunc && trunc.reqTrunc) {
+        parts.push('<span class="tag">request ' + formatBytes(BURP_MAX_BODY_CHARS) + ' / ' + formatBytes(reqLen) + ' preview</span>');
+      }
+      if (req.url) parts.push('<strong>' + escapeHtml(req.url) + '</strong>');
+      document.getElementById('burp-meta').innerHTML = parts.length ? parts.join(' ') : '';
+    }
+
+    function renderBurpPaneDeferred(packet, r) {
+      const reqEl = document.getElementById('burp-request-body');
+      const resEl = document.getElementById('burp-response-body');
+      reqEl.textContent = 'Loading request…';
+      resEl.textContent = 'Loading response…';
+      requestAnimationFrame(() => {
+        const trunc = renderBurpPane(null, packet);
+        renderBurpMeta(packet, r, trunc);
+      });
+    }
+
+    function bindBurpTabs(packet) {
+      document.querySelectorAll('.burp-tabs').forEach(tabs => {
+        const pane = tabs.dataset.pane;
+        tabs.querySelectorAll('button').forEach(btn => {
+          btn.onclick = () => {
+            tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            burpViews[pane] = btn.dataset.view;
+            const reqEl = document.getElementById('burp-request-body');
+            const resEl = document.getElementById('burp-response-body');
+            if (pane === 'request') reqEl.textContent = 'Loading…';
+            else resEl.textContent = 'Loading…';
+            requestAnimationFrame(() => {
+              const trunc = renderBurpPane(null, packet);
+              if (currentBurpRecord) renderBurpMeta(packet, currentBurpRecord, trunc);
+            });
+          };
+        });
+      });
+    }
+
+    function showRecordDetail(id) {
+      const r = currentRecords.find(x => String(x.id) === String(id));
+      if (!r) return;
+      document.getElementById('doc-preview').classList.add('hidden');
+      document.getElementById('record-detail').classList.remove('hidden');
+      document.getElementById('right-empty').classList.add('hidden');
+      document.querySelector('.right-body').classList.add('burp-mode');
+      document.getElementById('right-title').innerHTML =
+        'Request / Response &middot; <strong>' + escapeHtml(r.method) + ' ' + escapeHtml(r.api) + '</strong>';
+      burpViews = { request: 'raw', response: 'raw' };
+      document.querySelectorAll('.burp-tabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === 'raw');
+      });
+      currentBurpRecord = r;
+      currentBurpPacket = packetFromRecord(r);
+      renderBurpMeta(currentBurpPacket, r, null);
+      bindBurpTabs(currentBurpPacket);
+      renderBurpPaneDeferred(currentBurpPacket, r);
+    }
+
+    document.querySelectorAll('#table-head th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (sortKey === key) sortAsc = !sortAsc;
+        else { sortKey = key; sortAsc = true; }
+        renderTable();
+      });
+    });
+
+    const btnDedupeLatest = document.getElementById('btn-dedupe-latest');
+    if (btnDedupeLatest) {
+      btnDedupeLatest.addEventListener('click', () => {
+        dedupeLatestOnly = !dedupeLatestOnly;
+        updateRecordsToolbar();
+        renderTable();
+      });
+    }
+
+    const btnSortSimilarity = document.getElementById('btn-sort-similarity');
+    if (btnSortSimilarity) {
+      btnSortSimilarity.addEventListener('click', () => {
+        if (sortKey === 'similarity') sortAsc = !sortAsc;
+        else { sortKey = 'similarity'; sortAsc = true; }
+        renderTable();
+      });
+    }
+
+
+    function taskStatusLabel(st) {
+      const map = { pending: '等待中', running: '扫描中', completed: '已完成', failed: '失败' };
+      return map[st] || st;
+    }
+
+    function renderTasks(tasks) {
+      tasks = asArray(tasks);
+      const el = document.getElementById('task-list');
+      if (!tasks.length) {
+        el.innerHTML = '<div class="empty">暂无任务</div>';
+        return;
+      }
+      el.innerHTML = tasks.map(t => {
+        const st = escapeHtml(t.status);
+        const cls = 'st-' + st;
+        return '<div class="task-item">' +
+          '<div><span class="tid">' + escapeHtml(t.id) + '</span> ' +
+          '<span class="' + cls + '">' + taskStatusLabel(t.status) + '</span></div>' +
+          '<div class="meta">' + (t.ok || 0) + ' ok / ' + (t.failed || 0) + ' fail / ' + (t.total || 0) + ' total</div>' +
+          (t.error ? '<div class="meta" style="color:var(--risk)">' + escapeHtml(t.error) + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+
+    async function refreshTasks() {
+      try {
+        const tasks = await api('/api/scan/tasks');
+        renderTasks(tasks);
+      } catch (e) {
+        console.warn('tasks', e);
+      }
+    }
+
+    function pollTask(id) {
+      if (pollTimers[id]) clearInterval(pollTimers[id]);
+      pollTimers[id] = setInterval(async () => {
+        try {
+          const t = await api('/api/scan/tasks/' + encodeURIComponent(id));
+          await refreshTasks();
+          if (t.status === 'completed' || t.status === 'failed') {
+            clearInterval(pollTimers[id]);
+            delete pollTimers[id];
+            const [hosts, sessions] = await Promise.all([api('/api/hosts'), api('/api/sessions')]);
+            renderHosts(asArray(hosts));
+            renderSessions(asArray(sessions));
+            if (t.status === 'completed') {
+              showOk('任务 ' + id + ' 完成：' + t.ok + ' 成功，' + t.failed + ' 失败');
+            } else {
+              showError('任务 ' + id + ' 失败：' + (t.error || 'unknown'));
+            }
+          }
+        } catch (e) {
+          console.warn('poll', e);
+        }
+      }, 2000);
+    }
+
+    async function submitScan(body) {
+      const task = await apiPostJSON('/api/scan/tasks', body);
+      showOk('已创建任务 ' + task.id);
+      await refreshTasks();
+      pollTask(task.id);
+      return task;
+    }
+
+    async function submitScanFile(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const task = await apiPostMultipart('/api/scan/tasks', fd);
+      showOk('已创建任务 ' + task.id + '（' + file.name + '）');
+      await refreshTasks();
+      pollTask(task.id);
+    }
+
+    function bindScanUI() {
+      document.getElementById('btn-scan-single').addEventListener('click', async () => {
+        const url = document.getElementById('scan-url').value.trim();
+        if (!url) { showError('请输入 URL'); return; }
+        try {
+          await submitScan({ url });
+        } catch (e) { showError(e.message); }
+      });
+      document.getElementById('btn-scan-batch').addEventListener('click', async () => {
+        const urls_text = document.getElementById('scan-urls-text').value.trim();
+        if (!urls_text) { showError('请输入至少一行 URL'); return; }
+        try {
+          await submitScan({ urls_text });
+        } catch (e) { showError(e.message); }
+      });
+      document.getElementById('btn-scan-file').addEventListener('click', async () => {
+        const input = document.getElementById('scan-file');
+        if (!input.files || !input.files[0]) { showError('请选择目标文件'); return; }
+        try {
+          await submitScanFile(input.files[0]);
+          input.value = '';
+        } catch (e) { showError(e.message); }
+      });
+    }
+
+    async function init() {
+      bindScanUI();
+      try {
+        const status = await api('/api/status');
+        document.getElementById('subtitle').textContent =
+          'hosts=' + (status.host_count || 0) + ' sessions=' + (status.session_count || 0) + ' | ' + (status.api_doc_path || '');
+        const [hosts, sessions] = await Promise.all([api('/api/hosts'), api('/api/sessions')]);
+        const hostList = asArray(hosts);
+        const sessionList = asArray(sessions);
+        renderHosts(hostList);
+        renderSessions(sessionList);
+        await refreshTasks();
+        if (hostList.length) await selectHost(hostList[0].host, hostList[0].doc_session_id || '');
+        else if (sessionList.length) await selectSession(sessionList[0].id, sessionList[0].host, false);
+        else {
+          document.getElementById('records-title-text').textContent = '暂无扫描数据，可在上方下发扫描任务';
+        }
+      } catch (e) {
+        showError('Load failed: ' + e.message);
+        document.getElementById('subtitle').textContent = '部分数据加载失败，仍可下发扫描';
+        await refreshTasks();
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

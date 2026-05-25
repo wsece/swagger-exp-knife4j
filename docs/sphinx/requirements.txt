@@ -1,0 +1,4 @@
+sphinx>=7.3,<9
+myst-parser[linkify]>=3.0,<5
+sphinx-rtd-theme>=2.0,<4
+sphinx-copybutton>=0.5,<1

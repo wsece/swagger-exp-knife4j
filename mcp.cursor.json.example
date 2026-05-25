@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "swagger-exp-knife4j": {
+      "command": "C:\\YourPath\\swagger-exp-knife4j.exe",
+      "args": ["mcp", "serve"],
+      "cwd": "C:\\YourPath\\swagger-exp-knife4j"
+    }
+  }
+}
